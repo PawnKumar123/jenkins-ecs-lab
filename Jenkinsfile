@@ -19,12 +19,6 @@ pipeline {
 
     stages {
 
-        stage('Cleaning the Workspace') {
-            steps {
-                deleteDir()
-            }
-        }
-
         stage('Setting Build Info') {
             steps {
                 echo "================================"
@@ -37,22 +31,35 @@ pipeline {
 
         stage('AWS Connection Test') {
             steps {
-                sh '''
-                    aws sts get-caller-identity
-                '''
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']
+                ]) {
+                    sh '''
+                        aws sts get-caller-identity
+                    '''
+                }
             }
         }
 
         stage('ECS Update') {
             steps {
-                sh """
-                    ./scripts/ecs.sh ${params.ACTION}
-                """
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials-id']
+                ]) {
+                    sh """
+                        chmod +x ./scripts/ecs.sh
+                        ./scripts/ecs.sh ${params.ACTION}
+                    """
+                }
             }
         }
     }
 
     post {
+
+        always {
+            cleanWs()
+        }
 
         success {
             echo "ECS operation completed successfully."
